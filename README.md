@@ -125,7 +125,7 @@ O projeto possui testes unitários e testes de integração para verificar o fun
 
 Os testes verificam cadastro e consulta de produtos, conexões, registro de compras, recomendações e prevenção de duplicidades.
 
-## 10. Apresentação do projeto
+## 9. Apresentação do projeto
 
 Vídeo de apresentação:
 
