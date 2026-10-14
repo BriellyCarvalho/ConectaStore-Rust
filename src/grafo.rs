@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::produto::Produto;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Vertice {
     Produto(u32),
     Cliente(u32),
@@ -23,114 +23,98 @@ impl Grafo {
         }
     }
 
-    // Cadastra um produto no HashMap
     pub fn cadastrar_produto(&mut self, produto: Produto) {
         let id = produto.id;
 
         self.produtos.insert(id, produto);
 
-        self.conexoes
-            .entry(Vertice::Produto(id))
-            .or_insert_with(Vec::new);
+        self.conexoes.entry(Vertice::Produto(id)).or_default();
     }
 
-    // Consulta um produto pelo ID
     pub fn consultar_produto(&self, id: u32) -> Option<&Produto> {
         self.produtos.get(&id)
     }
 
-    // Cria uma conexão entre dois produtos
     pub fn conectar_produtos(&mut self, produto1: u32, produto2: u32) -> bool {
-        let v1 = Vertice::Produto(produto1);
-        let v2 = Vertice::Produto(produto2);
-
-        self.conexoes.entry(v1.clone()).or_insert_with(Vec::new);
-
-        self.conexoes.entry(v2.clone()).or_insert_with(Vec::new);
-
-        // Verifica se a conexão já existe
-        let ja_existe = self.conexoes.get(&v1).unwrap().contains(&v2);
-
-        if !ja_existe {
-            self.conexoes.get_mut(&v1).unwrap().push(v2.clone());
-            self.conexoes.get_mut(&v2).unwrap().push(v1);
-
-            true
-        } else {
-            false
+        if produto1 == produto2
+            || !self.produtos.contains_key(&produto1)
+            || !self.produtos.contains_key(&produto2)
+        {
+            return false;
         }
+
+        let vertice1 = Vertice::Produto(produto1);
+        let vertice2 = Vertice::Produto(produto2);
+
+        let conexao_existe = self
+            .conexoes
+            .get(&vertice1)
+            .is_some_and(|vizinhos| vizinhos.contains(&vertice2));
+
+        if conexao_existe {
+            return false;
+        }
+
+        self.conexoes.entry(vertice1).or_default().push(vertice2);
+
+        self.conexoes.entry(vertice2).or_default().push(vertice1);
+
+        true
     }
 
-    // Registra uma compra de um cliente
-    pub fn registrar_compra(&mut self, cliente: u32, produto: u32) {
-        let cliente_vertice = Vertice::Cliente(cliente);
-        let produto_vertice = Vertice::Produto(produto);
-
-        self.conexoes
-            .entry(cliente_vertice.clone())
-            .or_insert_with(Vec::new);
-
-        self.conexoes
-            .entry(produto_vertice.clone())
-            .or_insert_with(Vec::new);
-
-        // Conecta cliente ao produto
-        if !self
-            .conexoes
-            .get(&cliente_vertice)
-            .unwrap()
-            .contains(&produto_vertice)
-        {
-            self.conexoes
-                .get_mut(&cliente_vertice)
-                .unwrap()
-                .push(produto_vertice.clone());
+    pub fn registrar_compra(&mut self, cliente: u32, produto: u32) -> bool {
+        if !self.produtos.contains_key(&produto) {
+            return false;
         }
 
-        // Conecta produto ao cliente
-        if !self
+        let vertice_cliente = Vertice::Cliente(cliente);
+        let vertice_produto = Vertice::Produto(produto);
+
+        let conexao_existe = self
             .conexoes
-            .get(&produto_vertice)
-            .unwrap()
-            .contains(&cliente_vertice)
-        {
+            .get(&vertice_cliente)
+            .is_some_and(|vizinhos| vizinhos.contains(&vertice_produto));
+
+        if !conexao_existe {
             self.conexoes
-                .get_mut(&produto_vertice)
-                .unwrap()
-                .push(cliente_vertice);
+                .entry(vertice_cliente)
+                .or_default()
+                .push(vertice_produto);
+
+            self.conexoes
+                .entry(vertice_produto)
+                .or_default()
+                .push(vertice_cliente);
         }
 
-        // Registra o produto comprado pelo cliente
-        self.compras
-            .entry(cliente)
-            .or_insert_with(HashSet::new)
-            .insert(produto);
+        self.compras.entry(cliente).or_default().insert(produto);
+
+        true
     }
 
-    // BFS para recomendar produtos a partir de um produto
-    pub fn recomendar_por_produto(&self, produto_inicial: u32) -> Vec<Produto> {
-        let inicio = Vertice::Produto(produto_inicial);
+    pub fn recomendar_por_produto(&self, produto_id: u32) -> Vec<&Produto> {
+        if !self.produtos.contains_key(&produto_id) {
+            return Vec::new();
+        }
 
+        let inicio = Vertice::Produto(produto_id);
         let mut fila = VecDeque::new();
         let mut visitados = HashSet::new();
         let mut recomendacoes = Vec::new();
 
-        fila.push_back(inicio.clone());
+        fila.push_back(inicio);
         visitados.insert(inicio);
 
         while let Some(atual) = fila.pop_front() {
             if let Some(vizinhos) = self.conexoes.get(&atual) {
                 for vizinho in vizinhos {
-                    if !visitados.contains(vizinho) {
-                        visitados.insert(vizinho.clone());
-                        fila.push_back(vizinho.clone());
+                    if visitados.insert(*vizinho) {
+                        fila.push_back(*vizinho);
 
                         if let Vertice::Produto(id) = vizinho {
-                            if *id != produto_inicial {
+                            if *id != produto_id {
                                 if let Some(produto) = self.produtos.get(id) {
-                                    if !recomendacoes.iter().any(|p: &Produto| p.id == produto.id) {
-                                        recomendacoes.push(produto.clone());
-                                    }
+                                    recomendacoes.push(produto);
                                 }
                             }
                         }
@@ -142,36 +126,30 @@ impl Grafo {
         recomendacoes
     }
 
-    // BFS para recomendar produtos a partir de um cliente
-    pub fn recomendar_por_cliente(&self, cliente: u32) -> Vec<Produto> {
+    pub fn recomendar_por_cliente(&self, cliente: u32) -> Vec<&Produto> {
         let inicio = Vertice::Cliente(cliente);
-
         let mut fila = VecDeque::new();
         let mut visitados = HashSet::new();
         let mut recomendacoes = Vec::new();
 
-        fila.push_back(inicio.clone());
+        let comprados = self.compras.get(&cliente);
+
+        fila.push_back(inicio);
         visitados.insert(inicio);
 
         while let Some(atual) = fila.pop_front() {
             if let Some(vizinhos) = self.conexoes.get(&atual) {
                 for vizinho in vizinhos {
-                    if !visitados.contains(vizinho) {
-                        visitados.insert(vizinho.clone());
-                        fila.push_back(vizinho.clone());
+                    if visitados.insert(*vizinho) {
+                        fila.push_back(*vizinho);
 
                         if let Vertice::Produto(id) = vizinho {
-                            let ja_comprou = self
-                                .compras
-                                .get(&cliente)
-                                .map(|compras| compras.contains(id))
-                                .unwrap_or(false);
+                            let ja_comprado =
+                                comprados.is_some_and(|produtos| produtos.contains(id));
 
-                            if !ja_comprou {
+                            if !ja_comprado {
                                 if let Some(produto) = self.produtos.get(id) {
-                                    if !recomendacoes.iter().any(|p: &Produto| p.id == produto.id) {
-                                        recomendacoes.push(produto.clone());
-                                    }
+                                    recomendacoes.push(produto);
                                 }
                             }
                         }
@@ -184,16 +162,11 @@ impl Grafo {
     }
 }
 
-// =====================================================
-// TESTES UNITÁRIOS
-// =====================================================
-
 #[cfg(test)]
 mod testes {
     use super::*;
-    use crate::produto::Produto;
 
-    fn produto_teste(id: u32, nome: &str) -> Produto {
+    fn criar_produto(id: u32, nome: &str) -> Produto {
         Produto::novo(id, nome, "Eletronicos", 100.0)
     }
 
@@ -210,24 +183,25 @@ mod testes {
     fn deve_cadastrar_produto() {
         let mut grafo = Grafo::novo();
 
-        grafo.cadastrar_produto(produto_teste(1, "Notebook"));
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
 
-        assert!(grafo.consultar_produto(1).is_some());
+        assert!(grafo.produtos.contains_key(&1));
+        assert!(grafo.conexoes.contains_key(&Vertice::Produto(1)));
     }
 
     #[test]
     fn deve_consultar_produto() {
         let mut grafo = Grafo::novo();
 
-        grafo.cadastrar_produto(produto_teste(1, "Notebook"));
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
 
-        let produto = grafo.consultar_produto(1);
+        let produto = grafo.consultar_produto(1).unwrap();
 
-        assert_eq!(produto.unwrap().nome, "Notebook");
+        assert_eq!(produto.nome, "Notebook");
     }
 
     #[test]
-    fn produto_inexistente_deve_retornar_none() {
+    fn nao_deve_consultar_produto_inexistente() {
         let grafo = Grafo::novo();
 
         assert!(grafo.consultar_produto(999).is_none());
@@ -237,10 +211,10 @@ mod testes {
     fn deve_conectar_produtos() {
         let mut grafo = Grafo::novo();
 
-        grafo.cadastrar_produto(produto_teste(1, "Notebook"));
-        grafo.cadastrar_produto(produto_teste(2, "Mouse"));
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
+        grafo.cadastrar_produto(criar_produto(2, "Mouse"));
 
-        grafo.conectar_produtos(1, 2);
+        assert!(grafo.conectar_produtos(1, 2));
 
         let conexoes = grafo.conexoes.get(&Vertice::Produto(1)).unwrap();
 
@@ -248,14 +222,14 @@ mod testes {
     }
 
     #[test]
-    fn nao_deve_duplicar_conexao() {
+    fn nao_deve_criar_conexao_duplicada() {
         let mut grafo = Grafo::novo();
 
-        grafo.cadastrar_produto(produto_teste(1, "Notebook"));
-        grafo.cadastrar_produto(produto_teste(2, "Mouse"));
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
+        grafo.cadastrar_produto(criar_produto(2, "Mouse"));
 
-        grafo.conectar_produtos(1, 2);
-        grafo.conectar_produtos(1, 2);
+        assert!(grafo.conectar_produtos(1, 2));
+        assert!(!grafo.conectar_produtos(1, 2));
 
         let conexoes = grafo.conexoes.get(&Vertice::Produto(1)).unwrap();
 
@@ -263,22 +237,58 @@ mod testes {
     }
 
     #[test]
+    fn nao_deve_conectar_produtos_inexistentes() {
+        let mut grafo = Grafo::novo();
+
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
+
+        assert!(!grafo.conectar_produtos(1, 999));
+    }
+
+    #[test]
+    fn nao_deve_conectar_produto_a_ele_mesmo() {
+        let mut grafo = Grafo::novo();
+
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
+
+        assert!(!grafo.conectar_produtos(1, 1));
+    }
+
+    #[test]
     fn deve_registrar_compra() {
         let mut grafo = Grafo::novo();
 
-        grafo.cadastrar_produto(produto_teste(1, "Notebook"));
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
 
-        grafo.registrar_compra(100, 1);
-
+        assert!(grafo.registrar_compra(100, 1));
         assert!(grafo.compras.get(&100).unwrap().contains(&1));
     }
 
     #[test]
-    fn deve_recomendar_produto_conectado() {
+    fn nao_deve_registrar_compra_de_produto_inexistente() {
         let mut grafo = Grafo::novo();
 
-        grafo.cadastrar_produto(produto_teste(1, "Notebook"));
-        grafo.cadastrar_produto(produto_teste(2, "Mouse"));
+        assert!(!grafo.registrar_compra(100, 999));
+    }
+
+    #[test]
+    fn nao_deve_duplicar_compra() {
+        let mut grafo = Grafo::novo();
+
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
+
+        assert!(grafo.registrar_compra(100, 1));
+        assert!(grafo.registrar_compra(100, 1));
+
+        assert_eq!(grafo.compras.get(&100).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn deve_recomendar_produtos_conectados() {
+        let mut grafo = Grafo::novo();
+
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
+        grafo.cadastrar_produto(criar_produto(2, "Mouse"));
 
         grafo.conectar_produtos(1, 2);
 
@@ -289,20 +299,28 @@ mod testes {
     }
 
     #[test]
-    fn cliente_nao_deve_receber_produto_ja_comprado() {
+    fn nao_deve_recomendar_produto_inexistente() {
+        let grafo = Grafo::novo();
+
+        assert!(grafo.recomendar_por_produto(999).is_empty());
+    }
+
+    #[test]
+    fn nao_deve_recomendar_produtos_ja_comprados() {
         let mut grafo = Grafo::novo();
 
-        grafo.cadastrar_produto(produto_teste(1, "Notebook"));
-        grafo.cadastrar_produto(produto_teste(2, "Mouse"));
+        grafo.cadastrar_produto(criar_produto(1, "Notebook"));
+        grafo.cadastrar_produto(criar_produto(2, "Mouse"));
+        grafo.cadastrar_produto(criar_produto(3, "Teclado"));
 
         grafo.conectar_produtos(1, 2);
+        grafo.conectar_produtos(2, 3);
 
         grafo.registrar_compra(100, 1);
         grafo.registrar_compra(100, 2);
 
         let recomendacoes = grafo.recomendar_por_cliente(100);
 
-        assert!(!recomendacoes.iter().any(|p| p.id == 1));
-        assert!(!recomendacoes.iter().any(|p| p.id == 2));
+        assert!(recomendacoes.iter().all(|p| p.id != 1 && p.id != 2));
     }
 }

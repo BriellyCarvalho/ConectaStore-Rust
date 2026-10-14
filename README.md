@@ -4,31 +4,32 @@
 
 O **ConectaStore** é uma aplicação de linha de comando desenvolvida em Rust para representar produtos, relações entre produtos, clientes e compras.
 
-O sistema permite:
+O sistema utiliza um grafo para relacionar produtos e clientes, permitindo gerar recomendações com base nas conexões existentes.
 
-* cadastrar e consultar produtos;
-* conectar produtos;
-* registrar compras;
-* recomendar produtos relacionados;
-* evitar recomendações de produtos já comprados pelo cliente;
-* testar o desempenho da recomendação.
+A aplicação permite:
 
-A recomendação utiliza o algoritmo **BFS (Busca em Largura)** para percorrer o grafo de produtos.
+- Cadastrar e consultar produtos;
+- Conectar produtos relacionados;
+- Registrar compras de clientes;
+- Recomendar produtos relacionados a um produto selecionado;
+- Recomendar produtos para clientes, evitando sugerir itens que já compraram;
+- Listar os produtos cadastrados;
+- Executar um teste de desempenho com diferentes quantidades de produtos.
 
-## 2. Tecnologias e estruturas utilizadas
+Ao iniciar a aplicação, cinco produtos de exemplo são carregados: Notebook, Mouse, Teclado, Headset e Monitor. Também são criadas conexões entre produtos e registradas compras de exemplo para o cliente de ID 100, permitindo testar as recomendações desde o início.
 
-- **Rust**: linguagem utilizada no desenvolvimento.
-- **Cargo**: ferramenta de gerenciamento, compilação e testes.
-- **HashMap**: armazenamento dos vértices e suas conexões.
-- **HashSet**: controle de produtos já comprados e vértices visitados.
-- **VecDeque**: fila utilizada pela BFS.
-- **enum Vertice**: representação de produtos e clientes.
-- **Testes unitários e testes de integração**: verificação do funcionamento do sistema.
+## 2. Tecnologias utilizadas
+
+- **Rust:** linguagem utilizada no desenvolvimento da aplicação.
+- **Cargo:** ferramenta de gerenciamento, compilação e execução do projeto.
+- **Git e GitHub:** controle de versão e hospedagem do código.
 
 ## 3. Arquitetura da solução
 
+A estrutura do projeto está organizada da seguinte forma:
+
 ```
-megastore/
+ConectaStore-Rust/
 ├── src/
 │   ├── main.rs
 │   ├── grafo.rs
@@ -40,20 +41,28 @@ megastore/
 └── README.md
 ```
 
-* **`main.rs`**: menu, entrada de dados e fluxo da aplicação.
-* **`grafo.rs`**: estrutura do grafo, conexões, compras e recomendações.
-* **`produto.rs`**: definição da estrutura `Produto`.
-* **`integracao_test.rs`**: testes de integração.
+### Responsabilidade dos arquivos
 
-O grafo utiliza **lista de adjacência**, representada por:
+- **`main.rs`**: menu, entrada de dados e fluxo da aplicação.
+- **`grafo.rs`**: estrutura do grafo, conexões, compras e recomendações.
+- **`produto.rs`**: definição e criação da estrutura `Produto`.
+- **`integracao_test.rs`**: testes de integração das funcionalidades do sistema.
 
-```
-HashMap<Vertice, Vec<Vertice>>
-```
+## 4. Estruturas de dados utilizadas
 
-As relações entre produtos são representadas como arestas não direcionadas e não ponderadas.
+O projeto utiliza as seguintes estruturas:
 
-## 4. Como compilar e executar
+- **HashMap:** armazena produtos e suas conexões, permitindo consultas por identificador.
+- **HashSet:** registra os produtos comprados por cada cliente e evita duplicidade nos registros de compras.
+- **Vec:** armazena as listas de adjacência, representando as conexões entre os vértices.
+- **VecDeque:** implementa a fila utilizada na busca em largura.
+- **Grafo:** representa os relacionamentos entre produtos e clientes.
+
+Os vértices são representados pelo tipo `Vertice`, que diferencia produtos e clientes.
+
+A representação por lista de adjacência permite armazenar as relações existentes entre os elementos sem precisar criar uma matriz para todas as combinações possíveis.
+
+## 5. Como executar o projeto
 
 Com Rust e Cargo instalados, execute:
 
@@ -65,50 +74,61 @@ Formatar: cargo fmt
 Verificar formatação: cargo fmt --check
 ```
 
-## 5. Exemplos de uso
+## 6. Funcionalidades do menu
 
-Ao executar o programa, o menu apresenta:
+Ao executar a aplicação, o usuário encontra as seguintes opções:
 
 ```
 1 - Cadastrar produto
 2 - Consultar produto
 3 - Conectar produtos
 4 - Registrar compra
-5 - Recomendar por produto
-6 - Recomendar por cliente
+5 - Recomendar produtos
+6 - Listar produtos
 7 - Teste de desempenho
+0 - Sair
 ```
-Exemplo de consulta:
 
-Selecionar a opção de consultar produto
+Na opção **Recomendar produtos**, existem duas possibilidades:
 
-Informar o ID do produto
+1. Recomendar produtos a partir de um produto de referência.
+2. Recomendar produtos para um cliente, considerando suas compras registradas.
 
-O sistema apresenta os dados do produto correspondente, caso ele exista.
+### Exemplo de recomendação
 
-## 6. Complexidade e desempenho
+Se o cliente já comprou um Mouse, esse produto não deve aparecer novamente como sugestão de compra. O sistema percorre as conexões do grafo para encontrar outros produtos relacionados.
 
-A busca em largura (BFS) percorre o grafo para encontrar produtos relacionados.
+O sistema também verifica situações como produtos inexistentes, conexões duplicadas e tentativas de conectar um produto a ele mesmo.
 
-Considerando V como o número de vértices e E como o número de arestas, a complexidade de tempo da BFS é O(V + E).
+## 7. Algoritmo e complexidade
 
-A lista de adjacência utiliza O(V + E) de espaço para representar os vértices e as arestas do grafo.
+O algoritmo de recomendação utiliza a **busca em largura (BFS — Breadth-First Search)**, implementada com uma fila `VecDeque` e um conjunto de vértices visitados.
 
-Os tempos de execução podem variar de acordo com o hardware, a quantidade de dados e as condições do ambiente de teste.
+Considerando:
 
-## 7. Testes automatizados
-Os testes automatizados verificam funcionalidades como cadastro e consulta de produtos, conexões, compras e recomendações.
+- **V:** quantidade de vértices do grafo;
+- **E:** quantidade de arestas do grafo.
 
-Resultados dos testes:
+A travessia em largura apresenta complexidade de tempo **O(V + E)**. A representação do grafo por listas de adjacência utiliza **O(V + E)** de espaço para armazenar os vértices e as conexões.
 
-11 testes unitários aprovados
+As verificações adicionais para evitar recomendações duplicadas e excluir produtos já comprados também influenciam o custo total da operação.
 
-15 testes de integração aprovados
+## 8. Testes automatizados
 
-26 testes no total
+## 8. Testes automatizados
 
-0 falhas
+O projeto possui testes unitários e testes de integração para verificar o funcionamento das principais funcionalidades.
 
-## 8. Vídeo Pitch
+**Resultados da execução:**
 
-Link do vídeo: https://youtu.be/OywvDrrIcP4
+- 16 testes unitários aprovados;
+- 20 testes executados no arquivo de integração, incluindo testes unitários repetidos;
+- 0 falhas em ambas as execuções.
+
+Os testes verificam cadastro e consulta de produtos, conexões, registro de compras, recomendações e prevenção de duplicidades.
+
+## 10. Apresentação do projeto
+
+Vídeo de apresentação:
+
+https://youtu.be/OywvDrrIcP4
