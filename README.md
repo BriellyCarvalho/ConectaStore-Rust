@@ -76,7 +76,7 @@ Ao executar o programa, o menu apresenta:
 4 - Registrar compra
 5 - Recomendar por produto
 6 - Recomendar por cliente
-7 - Teste de dese
+7 - Teste de desempenho
 ```
 Exemplo de consulta:
 
