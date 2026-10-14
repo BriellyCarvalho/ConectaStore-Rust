@@ -115,8 +115,6 @@ As verificações adicionais para evitar recomendações duplicadas e excluir pr
 
 ## 8. Testes automatizados
 
-## 8. Testes automatizados
-
 O projeto possui testes unitários e testes de integração para verificar o funcionamento das principais funcionalidades.
 
 **Resultados da execução:**
